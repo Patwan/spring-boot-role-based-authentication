@@ -1,8 +1,11 @@
 package com.pwebk.SpringBootrolebasedauth.controller;
 
+import com.pwebk.SpringBootrolebasedauth.common.UserConstant;
 import com.pwebk.SpringBootrolebasedauth.entity.User;
 import com.pwebk.SpringBootrolebasedauth.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,10 +20,6 @@ import java.util.stream.Collectors;
 @RequestMapping("/user")
 public class UserController {
 
-    private static final String DEFAULT_USER = "ROLE_USER";
-    private static final String[] ADMIN_ACCESS = {"ROLE_ADMIN" , "ROLE_MODERATOR"};
-    private static final String[] MODERATOR_ACCESS = {"ROLE_MODERATOR"};
-
     @Autowired
     private UserRepository repository;
 
@@ -29,7 +28,7 @@ public class UserController {
 
     @PostMapping("/join")
     public String joinGroup(@RequestBody User user){
-        user.setRoles(DEFAULT_USER);
+        user.setRoles(UserConstant.DEFAULT_USER);
         String encryptedPwd = passwordEncoder.encode(user.getPassword());
         user.setPassword(encryptedPwd);
         repository.save(user);
@@ -39,6 +38,8 @@ public class UserController {
     //If Logged in user is ADMIN -> ADMIN or MODERATOR
     //If loggedin is Moderator -> MODERATOR
     @GetMapping("/access/{userId}/{userRole}")
+    //@Secured("ROLE_ADMIN")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_MODERATOR')")
     public String giveAccessToUser(@PathVariable Id userId, @PathVariable String userRole, Principal principal){
         User user = repository.findById(userId).get();
         List<String> activeRoles = getRolesByLoggedInUser(principal);
@@ -52,14 +53,27 @@ public class UserController {
         return "Hi " + user.getUserName() + " New role assigned to you by " + principal.getName();
     }
 
+    @GetMapping
+    @Secured("ROLE_ADMIN")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public List<User> loadUsers(){
+        return repository.findAll();
+    }
+
+    @GetMapping("/test")
+    @PreAuthorize("hasAuthority('ROLE_USER')")
+    public String testUserAccess(){
+        return "user can only access this";
+    }
+
     private List<String> getRolesByLoggedInUser(Principal principal){
         String roles = getLoggedInUser(principal).getRoles();
         List<String> assignRoles = Arrays.stream(roles.split(",")).collect(Collectors.toList());
         if(assignRoles.contains("ROLE_ADMIN")){
-            return Arrays.stream(ADMIN_ACCESS).collect((Collectors.toList()));
+            return Arrays.stream(UserConstant.ADMIN_ACCESS).collect((Collectors.toList()));
         }
         if(assignRoles.contains("ROLE_MODERATOR")){
-            return Arrays.stream(MODERATOR_ACCESS).collect((Collectors.toList()));
+            return Arrays.stream(UserConstant.MODERATOR_ACCESS).collect((Collectors.toList()));
         }
         return Collections.emptyList();
     }
