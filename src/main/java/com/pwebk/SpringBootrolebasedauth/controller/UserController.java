@@ -41,6 +41,7 @@ public class UserController {
     //@Secured("ROLE_ADMIN")
     @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_MODERATOR')")
     public String giveAccessToUser(@PathVariable Id userId, @PathVariable String userRole, Principal principal){
+        //Fetch the LoggedIn User
         User user = repository.findById(userId).get();
         List<String> activeRoles = getRolesByLoggedInUser(principal);
 
@@ -68,8 +69,15 @@ public class UserController {
 
 
     private List<String> getRolesByLoggedInUser(Principal principal){
+        //Pass the principal object (LoggedIn user) and fetch the roles
         String roles = getLoggedInUser(principal).getRoles();
+
+        //Remove the comma from the roles returned  and convert the array to a stream
+        //(using Arrays.stream() method) and convert back to a List using collect method
         List<String> assignRoles = Arrays.stream(roles.split(",")).collect(Collectors.toList());
+
+        //If the variable contains "ROLE_ADMIN" string return a List of strings of ADMIN_ACCESS.
+        //We convert the constant array to a stream and then convert back to a String
         if(assignRoles.contains("ROLE_ADMIN")){
             return Arrays.stream(UserConstant.ADMIN_ACCESS).collect((Collectors.toList()));
         }
